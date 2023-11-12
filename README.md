@@ -18,9 +18,7 @@ To run the program, execute the make command from the terminal and open the 'vfs
 11. showbin		- Shows the oldest node of the bin
 12. emptybin	- Empties the bin
 13. exist		- The program exits
-
-# Feature(s) to be implemented
 14. recover		- Reinstates the oldest node back from the bin to its original position
 
-# Additional(s) to be implemented
+# Additional(s) features implemented
 1. Ability to read and write current file system to a file

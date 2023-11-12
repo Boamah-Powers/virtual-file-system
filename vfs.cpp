@@ -2,15 +2,38 @@
 
 // constructor of the VFS class
 VFS::VFS() {
-    // creates root node
-    root = new Node("/", nullptr, folder, 0, getTime());
+    // creates input file stream
+    ifstream input("vfs.dat", ios::in);
 
-    // sets current Node
-    curr_Node = root;
+    // checks if file opened successfully
+    if (input) {
+        load(input);
+    }
+    else {
+        // creates root node
+        root = new Node("/", nullptr, folder, 0, getTime());
 
-    // sets previous Node
-    prev_Node = root;
+        // sets current Node
+        curr_Node = root;
 
+        // sets previous Node
+        prev_Node = root;
+    }
+
+    // closes the file
+    input.close();
+
+}
+
+// destructor of the VFS class
+VFS::~VFS() {
+    // removes all nodes including root
+    removeNode(root);
+
+    // deletes nodes in the bin
+    while (!bin.isEmpty()) {
+        removeNode(bin.dequeue());
+    }
 }
 
 // prints the available menu of commands
@@ -46,22 +69,56 @@ string VFS::pwd() {
 }
 
 // prints the children of the current node
-void VFS::ls() {
-    // loops through the children of the current node and prints them
-    for (int i = 0; i < curr_Node->children.size(); i++) {
-        // checks the type of the child
-        if (curr_Node->children[i]->type == folder) {
-            cout << setw(4) << "dir" << " ";
-        }
-        else {
-            cout << setw(4) << "file" << " ";
+void VFS::ls(string sort_param) {
+    // checks if the sort parameter was passed
+    if (sort_param == "sort") {
+        // temporary container for sorting children
+        Vector<Node*> temp;
+
+        // loops through children of the current node
+        for (int i = 0; i < curr_Node->children.size(); i++) {
+            temp.push_back(curr_Node->children[i]);
         }
 
-        cout << setw(10) << curr_Node->children[i]->name 
-            << " " << setw(10) << curr_Node->children[i]->size
-            << " " << setw(15) << curr_Node->children[i]->time_created;
-        
+        // sorts nodes in the temp
+        bubbleSort(temp);
+
+        // prints the nodes in the temp
+        for (int i = 0; i < temp.size(); i++) {
+            // checks the type of the child
+            if (temp[i]->type == folder) {
+                cout << setw(4) << "dir" << " ";
+            }
+            else {
+                cout << setw(4) << "file" << " ";
+            }
+
+            cout << setw(15) << temp[i]->name 
+                << " " << setw(10) << temp[i]->size
+                << " " << setw(15) << temp[i]->time_created;
+        }
     }
+    else if (sort_param == ""){
+         // loops through the children of the current node and prints them
+        for (int i = 0; i < curr_Node->children.size(); i++) {
+            // checks the type of the child
+            if (curr_Node->children[i]->type == folder) {
+                cout << setw(4) << "dir" << " ";
+            }
+            else {
+                cout << setw(4) << "file" << " ";
+            }
+
+            cout << setw(15) << curr_Node->children[i]->name 
+                << " " << setw(10) << curr_Node->children[i]->size
+                << " " << setw(15) << curr_Node->children[i]->time_created;
+            
+        }
+    }
+    else {
+        throw runtime_error("Invalid parameter");
+    }
+   
 }
 
 // creates a folder under the current folder
@@ -332,9 +389,44 @@ void VFS::mv(string file, string folder) {
     file_node->parent = folder_node;
 }
 
+//  reinstates the oldest node back from the bin to its original position
+void VFS::recover() {
+    // gets node to be recovered
+    Node* recoverNode = bin.dequeue();
+
+    // gets the path of the parent of the oldest node
+    string path = getPath(recoverNode->parent);
+
+    // gets the node at the parent
+    // -- if the node returned is not nullptr then the parent still exists
+    Node* parentNode = getNode(path);
+
+    // checks if the node returned is not nullptr
+    if (parentNode == nullptr) {
+        throw runtime_error("Path to node doesn't exist anymore");
+    }
+
+    // adds the node back to its parent
+    parentNode->children.push_back(recoverNode);
+
+}
+
 // exits the program
 void VFS::exit() {
+    // creates output stream
+    ofstream output("vfs.dat", ios::out);
 
+    // checks if file opened successfully
+    if (output) {
+        // writes data to output file
+        write(output, root);
+    }
+    else {
+        throw runtime_error("File failed to open");
+    }
+
+    // close file
+    output.close();
 }
 
 
@@ -478,4 +570,151 @@ void VFS::updateSize(Node *ptr) {
         // updates current ptr
         ptr = ptr->parent;
     }
-}				
+}	
+
+// sorts a vector of node pointers
+void VFS::bubbleSort(Vector<Node*>& container) {
+    for (int i = 0; i < container.size(); i++) {
+        for (int j = 0; j < container.size() - i - 1; j++) {
+            if (container[j]->size < container[j+1]->size) {
+                Node* temp = container[j];
+                container[j] = container[j+1];
+                container[j+1] = temp;
+            }
+        }
+    }
+}
+
+// traverse and write recursively the vfs data
+void VFS::write(ofstream &fout, Node *ptr) {
+    // writes data corresponding to ptr to output stream
+    if (ptr == root) {
+        fout << "/";
+    }
+    else {
+        fout << getPath(ptr);
+    }
+    fout << "," << ptr->size << "," << ptr->type << "," << ptr->time_created;
+
+    // loops through the children of ptr
+    for (int i = 0; i < ptr->children.size(); i++) {
+        write(fout, ptr->children[i]);
+    }
+}
+
+// helper method to load the vfs.dat
+void VFS::load(ifstream &fin) {
+    // variable to hold parameters
+    string params, curr_path;
+
+    // array to hold various parameters of the node
+    // 0 - name
+    // 1 - size
+    // 2 - type
+    // 3 - time_created
+    string paramsArray[4];
+
+    // read parameters for root node
+    getline(fin, params);
+
+    // creates stringstream object of params
+    stringstream sstr(params);
+
+    // loops to get all params
+    for (int i = 0; !sstr.eof(); i++) {
+        getline(sstr, paramsArray[i], ',');
+    }
+
+    // sets current path to the root
+    curr_path = paramsArray[0];
+
+    // creates the root node
+    root = new Node(paramsArray[0], nullptr, stoi(paramsArray[2]) ? folder : file, stoi(paramsArray[1]), paramsArray[3] + "\n");
+
+    // makes current node root
+    curr_Node = root;
+
+    // checks for the end of the file
+    while (getline(fin, params)) {
+
+        // clears the sstr buffer
+        sstr.clear();
+
+        // creates stringstream object of params
+        sstr.str(params);
+
+        // loops to get all params
+        for (int i = 0; !sstr.eof(); i++) {
+            getline(sstr, paramsArray[i], ',');
+        }
+
+        // searches for current path in read params
+        size_t found = paramsArray[0].find(curr_path);
+
+        // finds common parent 
+        while (found == string::npos) {
+            // finds last instance of '/' and removes from current path
+            found = curr_path.find_last_of('/');
+
+            if (found != curr_path.size() - 1) {
+                curr_Node = curr_Node->parent;
+            }
+
+            // updates current path
+            curr_path = curr_path.replace(found, curr_path.size(), "");
+            
+            // updates current path if moved up one level
+            if (curr_path.empty()) {
+                curr_path = "/";
+            }
+
+            // searches for current path in read params
+            found = paramsArray[0].find(curr_path);
+
+            if ((found != string::npos) && (curr_path.back() != '/')) {
+                curr_path += '/';
+            }
+        }
+
+
+        // replace portion of current path with ""
+        paramsArray[0].replace(found, curr_path.size(), "");
+
+        // checks if the after replacement, path still contains '/' at the begin
+        if (!paramsArray[0].empty() && paramsArray[0][0] == '/') {
+            paramsArray[0].erase(paramsArray[0].begin());
+        }
+
+        // creates new node
+        prev_Node = new Node(paramsArray[0], curr_Node, stoi(paramsArray[2]) ? folder : file, stoi(paramsArray[1]), paramsArray[3] + "\n");
+        
+        // adds newNode to current node's children
+        curr_Node->children.push_back(prev_Node);
+
+        // updates current path
+        curr_path = curr_path + paramsArray[0] + '/';
+
+        // updates current node
+        curr_Node = curr_Node->children.back();
+    }
+
+    // sets current node to root
+    curr_Node = root;
+
+    // sets prev node to root
+    prev_Node = root;
+}
+
+// helper method to remove all children under a specific node
+void VFS::removeNode(Node* ptr) {
+    // variable to hold number of children
+    int num_children =ptr->children.size();
+
+    // loops through the childre of ptr
+    for (int i = 0; i < num_children; i++) {
+        removeNode(ptr->children[i]);
+    }
+
+    // deletes node
+    delete ptr;
+}

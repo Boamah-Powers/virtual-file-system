@@ -29,7 +29,7 @@ int main()
 			//Required commands
 			     if(command=="help")		vfs.help();
 			else if(command=="pwd")			cout<<vfs.pwd()<<endl;
-			else if(command=="ls") 			vfs.ls();
+			else if(command=="ls") 			vfs.ls(parameter1);
 			else if(command=="mkdir")		vfs.mkdir(parameter1);
 			else if(command=="touch")		vfs.touch(parameter1,stoi(parameter2));
 			else if(command=="cd")			vfs.cd(parameter1);
@@ -42,7 +42,7 @@ int main()
 			//optional commands
 			else if(command=="find")		vfs.find(parameter1);
 			else if(command=="mv")			vfs.mv(parameter1, parameter2);
-			// else if(command=="recover")		vfs.recover();
+			else if(command=="recover")		vfs.recover();
 			else if(command=="clear")		system("clear");
 			else 							cout<<command<<": command not found"<<endl;
 		}
