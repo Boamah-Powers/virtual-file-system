@@ -329,7 +329,7 @@ void VFS::showbin() {
 // empties the bin
 void VFS::emptybin() {
     while (!bin.isEmpty()) {
-        bin.dequeue();
+        removeNode(bin.dequeue());
         bin_paths.dequeue();
     }
 }
@@ -544,8 +544,15 @@ Node* VFS::getNode(string path) {
 void VFS::updateSize(Node *ptr) {
     // checks if ptr is a folder and updates its size
     if (ptr->type == folder) {
-        // set the size to the default size
-        ptr->size = 10;
+
+        if (ptr == root) {
+            // set the size to the default size
+            ptr->size = 0;
+        }
+        else {
+            // set the size to the default size
+            ptr->size = 10;
+        }
 
         // adds the size of children
         for (int i = 0; i < ptr->children.size(); i++) {
